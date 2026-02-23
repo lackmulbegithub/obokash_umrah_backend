@@ -3,6 +3,8 @@
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BootstrapController;
 use App\Http\Controllers\Api\CustomerController;
+use App\Http\Controllers\Api\CustomerChangeRequestController;
+use App\Http\Controllers\Api\MasterDataController;
 use App\Http\Controllers\Api\PermissionController;
 use App\Http\Controllers\Api\QueryController;
 use App\Http\Controllers\Api\RoleController;
@@ -68,15 +70,43 @@ Route::middleware('auth:sanctum')->group(function (): void {
     });
 
     Route::middleware('permission:customer.view')->group(function (): void {
+        Route::get('/customers', [CustomerController::class, 'index']);
         Route::get('/customers/search', [CustomerController::class, 'search']);
+        Route::get('/customers/{customer}', [CustomerController::class, 'show']);
     });
 
     Route::middleware('permission:customer.create')->group(function (): void {
         Route::post('/customers', [CustomerController::class, 'store']);
+        Route::post('/customers/minimal', [CustomerController::class, 'storeMinimal']);
     });
 
     Route::middleware('permission:customer.edit')->group(function (): void {
         Route::patch('/customers/{customer}', [CustomerController::class, 'update']);
+    });
+
+    Route::middleware('permission:customer.approve_change')->group(function (): void {
+        Route::get('/change-requests', [CustomerChangeRequestController::class, 'index']);
+        Route::get('/change-requests/{changeRequest}', [CustomerChangeRequestController::class, 'show']);
+        Route::post('/change-requests/{changeRequest}/approve', [CustomerChangeRequestController::class, 'approve']);
+        Route::post('/change-requests/{changeRequest}/reject', [CustomerChangeRequestController::class, 'reject']);
+    });
+
+    Route::middleware('permission:masters.manage')->group(function (): void {
+        Route::get('/masters/whatsapp-accounts', [MasterDataController::class, 'whatsappAccounts']);
+        Route::post('/masters/whatsapp-accounts', [MasterDataController::class, 'storeWhatsappAccount']);
+        Route::patch('/masters/whatsapp-accounts/{officialWhatsappNumber}', [MasterDataController::class, 'updateWhatsappAccount']);
+
+        Route::get('/masters/emails', [MasterDataController::class, 'emails']);
+        Route::post('/masters/emails', [MasterDataController::class, 'storeEmail']);
+        Route::patch('/masters/emails/{officialEmail}', [MasterDataController::class, 'updateEmail']);
+
+        Route::get('/masters/staff', [MasterDataController::class, 'staff']);
+        Route::post('/masters/staff', [MasterDataController::class, 'storeStaff']);
+        Route::patch('/masters/staff/{user}', [MasterDataController::class, 'updateStaff']);
+
+        Route::get('/masters/districts', [MasterDataController::class, 'districts']);
+        Route::post('/masters/districts', [MasterDataController::class, 'storeDistrict']);
+        Route::patch('/masters/districts/{district}', [MasterDataController::class, 'updateDistrict']);
     });
 
     Route::middleware('permission:query.view')->group(function (): void {

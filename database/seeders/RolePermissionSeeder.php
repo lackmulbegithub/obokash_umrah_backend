@@ -27,6 +27,8 @@ class RolePermissionSeeder extends Seeder
             'customer.view',
             'customer.create',
             'customer.edit',
+            'customer.approve_change',
+            'masters.manage',
             'query.view',
             'query.create',
             'query.assign',
@@ -73,21 +75,40 @@ class RolePermissionSeeder extends Seeder
             'customer.view',
             'customer.create',
             'customer.edit',
+            'customer.approve_change',
+            'masters.manage',
             'query.view',
             'query.create',
             'query.assign',
             'query.change_status',
         ]);
 
-        $user = User::query()->firstOrCreate(
-            ['email' => 'admin@obokash.com'],
-            [
+        $user = User::query()
+            ->where('email', 'admin@obokash.com')
+            ->orWhere('mobile', '01700000000')
+            ->first();
+
+        if (! $user) {
+            $user = User::query()->create([
+                'email' => 'admin@obokash.com',
                 'full_name' => 'System Super Admin',
                 'mobile' => '01700000000',
                 'password' => Hash::make('password123'),
                 'is_active' => true,
-            ]
-        );
+            ]);
+        } else {
+            $user->fill([
+                'email' => $user->email ?: 'admin@obokash.com',
+                'full_name' => 'System Super Admin',
+                'is_active' => true,
+            ]);
+
+            if (! $user->mobile) {
+                $user->mobile = '01700000000';
+            }
+
+            $user->save();
+        }
 
         $user->assignRole($superAdmin);
     }
