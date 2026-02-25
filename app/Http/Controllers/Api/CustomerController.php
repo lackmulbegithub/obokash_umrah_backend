@@ -8,12 +8,13 @@ use App\Http\Requests\Api\UpdateCustomerRequest;
 use App\Models\Customer;
 use App\Models\CustomerEditRequest;
 use App\Models\CustomerReferral;
-use App\Models\CustomerSource;
 use App\Models\CustomerSourceLog;
+use App\Models\GenericSource;
 use App\Services\AuditLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
 class CustomerController extends Controller
@@ -132,10 +133,68 @@ class CustomerController extends Controller
 
         $mobile = $this->normalizeMobile($validated['mobile_number']);
         $whatsapp = $this->normalizeMobile($validated['whatsapp_number']);
+        $existingByMobile = Customer::query()->where('mobile_number', $mobile)->first();
 
         $sourceRuleErrors = $this->validateSourceConditionalRules($validated);
         if ($sourceRuleErrors !== []) {
             throw ValidationException::withMessages($sourceRuleErrors);
+        }
+
+        if ($existingByMobile && $this->resolveCustomerState($existingByMobile) === 'referrer') {
+            $customer = DB::transaction(function () use ($existingByMobile, $validated, $mobile, $whatsapp): Customer {
+                $existingByMobile->update([
+                    'mobile_number' => $mobile,
+                    'customer_name' => $validated['customer_name'],
+                    'gender' => $validated['gender'],
+                    'whatsapp_number' => $whatsapp,
+                    'visit_record' => $validated['visit_record'],
+                    'country' => $validated['country'] ?? 'Bangladesh',
+                    'district' => $validated['district'] ?? null,
+                    'address_line' => $validated['address_line'] ?? null,
+                    'customer_email' => $validated['customer_email'] ?? null,
+                    'is_active' => true,
+                ] + $this->customerStatusAttribute('registered'));
+
+                $existingByMobile->categories()->sync($validated['category_ids']);
+
+                CustomerSourceLog::query()->create([
+                    'customer_id' => $existingByMobile->id,
+                    'source_id' => $validated['source_id'],
+                    'source_wa_id' => $validated['source_wa_id'] ?? null,
+                    'source_email_id' => $validated['source_email_id'] ?? null,
+                    'referred_by_user_id' => $validated['referred_by_user_id'] ?? null,
+                    'referred_by_customer_id' => ($validated['referred_by_customer'] ?? false) ? ($validated['referred_by_customer_id'] ?? null) : null,
+                    'created_by_user_id' => auth()->id(),
+                ]);
+
+                if (($validated['referred_by_customer'] ?? false) && ! empty($validated['referred_by_customer_id'])) {
+                    CustomerReferral::query()->firstOrCreate([
+                        'referrer_customer_id' => $validated['referred_by_customer_id'],
+                        'referred_customer_id' => $existingByMobile->id,
+                    ], [
+                        'created_by_user_id' => auth()->id(),
+                    ]);
+                }
+
+                AuditLogger::log(
+                    auth()->id(),
+                    'customer',
+                    $existingByMobile->id,
+                    'customer.registration.completed',
+                    ['status' => 'referrer'],
+                    ['status' => 'registered'],
+                );
+
+                return $existingByMobile;
+            });
+
+            $warnings = $this->collectDuplicateWarnings($customer);
+
+            return response()->json([
+                'message' => 'Referrer profile upgraded to registered customer successfully.',
+                'warnings' => $warnings,
+                'data' => $customer->load('categories:id,category_name'),
+            ]);
         }
 
         $customer = DB::transaction(function () use ($validated, $mobile, $whatsapp): Customer {
@@ -150,7 +209,7 @@ class CustomerController extends Controller
                 'address_line' => $validated['address_line'] ?? null,
                 'customer_email' => $validated['customer_email'] ?? null,
                 'is_active' => true,
-            ]);
+            ] + $this->customerStatusAttribute('registered'));
 
             $customer->categories()->sync($validated['category_ids']);
 
@@ -216,7 +275,7 @@ class CustomerController extends Controller
             'visit_record' => 'No Travel',
             'country' => 'Bangladesh',
             'is_active' => true,
-        ]);
+        ] + $this->customerStatusAttribute('referrer'));
 
         AuditLogger::log(
             auth()->id(),
@@ -236,6 +295,10 @@ class CustomerController extends Controller
     public function update(UpdateCustomerRequest $request, Customer $customer): JsonResponse
     {
         $validated = $request->validated();
+
+        if ($this->resolveCustomerState($customer) === 'referrer') {
+            return $this->completeReferrerRegistration($customer, $validated);
+        }
 
         $oldData = $customer->only([
             'mobile_number',
@@ -299,6 +362,92 @@ class CustomerController extends Controller
     }
 
     /**
+     * @param array<string, mixed> $validated
+     */
+    private function completeReferrerRegistration(Customer $customer, array $validated): JsonResponse
+    {
+        $requiredFields = [
+            'customer_name' => 'Customer name is required to complete registration.',
+            'gender' => 'Gender is required to complete registration.',
+            'whatsapp_number' => 'WhatsApp number is required to complete registration.',
+            'visit_record' => 'Visit record is required to complete registration.',
+            'category_ids' => 'Category is required to complete registration.',
+            'source_id' => 'Customer source is required to complete registration.',
+        ];
+
+        $errors = [];
+        foreach ($requiredFields as $field => $message) {
+            $value = $validated[$field] ?? null;
+            if ($value === null || $value === '' || $value === []) {
+                $errors[$field][] = $message;
+            }
+        }
+
+        if ($errors !== []) {
+            throw ValidationException::withMessages($errors);
+        }
+
+        $validated['mobile_number'] = array_key_exists('mobile_number', $validated)
+            ? $this->normalizeMobile((string) $validated['mobile_number'])
+            : $customer->mobile_number;
+        $validated['whatsapp_number'] = $this->normalizeMobile((string) $validated['whatsapp_number']);
+
+        $sourceRuleErrors = $this->validateSourceConditionalRules($validated);
+        if ($sourceRuleErrors !== []) {
+            throw ValidationException::withMessages($sourceRuleErrors);
+        }
+
+        DB::transaction(function () use ($customer, $validated): void {
+            $customer->update([
+                'mobile_number' => $validated['mobile_number'],
+                'customer_name' => (string) $validated['customer_name'],
+                'gender' => (string) $validated['gender'],
+                'whatsapp_number' => $validated['whatsapp_number'],
+                'visit_record' => (string) $validated['visit_record'],
+                'country' => $validated['country'] ?? 'Bangladesh',
+                'district' => $validated['district'] ?? null,
+                'address_line' => $validated['address_line'] ?? null,
+                'customer_email' => $validated['customer_email'] ?? null,
+                'is_active' => true,
+            ] + $this->customerStatusAttribute('registered'));
+
+            $customer->categories()->sync($validated['category_ids']);
+
+            CustomerSourceLog::query()->create([
+                'customer_id' => $customer->id,
+                'source_id' => $validated['source_id'],
+                'source_wa_id' => $validated['source_wa_id'] ?? null,
+                'source_email_id' => $validated['source_email_id'] ?? null,
+                'referred_by_user_id' => $validated['referred_by_user_id'] ?? null,
+                'referred_by_customer_id' => ($validated['referred_by_customer'] ?? false) ? ($validated['referred_by_customer_id'] ?? null) : null,
+                'created_by_user_id' => auth()->id(),
+            ]);
+
+            if (($validated['referred_by_customer'] ?? false) && ! empty($validated['referred_by_customer_id'])) {
+                CustomerReferral::query()->firstOrCreate([
+                    'referrer_customer_id' => $validated['referred_by_customer_id'],
+                    'referred_customer_id' => $customer->id,
+                ], [
+                    'created_by_user_id' => auth()->id(),
+                ]);
+            }
+        });
+
+        AuditLogger::log(
+            auth()->id(),
+            'customer',
+            $customer->id,
+            'customer.registration.completed',
+            ['status' => 'referrer'],
+            ['status' => 'registered'],
+        );
+
+        return response()->json([
+            'message' => 'Referrer profile upgraded to registered customer successfully.',
+        ]);
+    }
+
+    /**
      * @param array<string, mixed> $payload
      * @return array<string, array<int, string>>
      */
@@ -310,7 +459,7 @@ class CustomerController extends Controller
             return $forUpdate ? [] : ['source_id' => ['Customer source is required.']];
         }
 
-        $sourceName = (string) CustomerSource::query()->where('id', $sourceId)->value('source_name');
+        $sourceName = (string) GenericSource::query()->where('id', $sourceId)->value('source_name');
         if ($sourceName === '') {
             return ['source_id' => ['Invalid customer source selected.']];
         }
@@ -397,5 +546,41 @@ class CustomerController extends Controller
         }
 
         return '+'.$digits;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function customerStatusAttribute(string $status): array
+    {
+        if (! $this->hasCustomerStatusColumn()) {
+            return [];
+        }
+
+        return ['status' => $status];
+    }
+
+    private function resolveCustomerState(Customer $customer): string
+    {
+        if (! $this->hasCustomerStatusColumn()) {
+            return 'registered';
+        }
+
+        $status = (string) $customer->getAttribute('status');
+
+        return in_array($status, ['referrer', 'referrer_only'], true)
+            ? 'referrer'
+            : 'registered';
+    }
+
+    private function hasCustomerStatusColumn(): bool
+    {
+        static $hasColumn;
+
+        if ($hasColumn === null) {
+            $hasColumn = Schema::hasColumn('customers', 'status');
+        }
+
+        return $hasColumn;
     }
 }

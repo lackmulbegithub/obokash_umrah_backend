@@ -21,7 +21,7 @@ class QueryItem extends Model
         'item_status',
     ];
 
-    public function query(): BelongsTo
+    public function queryRecord(): BelongsTo
     {
         return $this->belongsTo(Query::class);
     }

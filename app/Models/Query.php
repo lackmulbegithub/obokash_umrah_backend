@@ -29,6 +29,11 @@ class Query extends Model
         return $this->belongsTo(Customer::class);
     }
 
+    public function createdByUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by_user_id');
+    }
+
     public function items(): HasMany
     {
         return $this->hasMany(QueryItem::class);

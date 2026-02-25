@@ -25,6 +25,7 @@ class Customer extends Model
         'district',
         'address_line',
         'customer_email',
+        'status',
         'is_active',
     ];
 

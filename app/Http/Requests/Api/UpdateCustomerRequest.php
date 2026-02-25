@@ -32,7 +32,7 @@ class UpdateCustomerRequest extends FormRequest
             'customer_email' => ['nullable', 'email', 'max:255'],
             'category_ids' => ['sometimes', 'required', 'array', 'min:1'],
             'category_ids.*' => ['required', 'integer', 'exists:customer_categories,id'],
-            'source_id' => ['sometimes', 'required', 'integer', 'exists:customer_sources,id'],
+            'source_id' => ['sometimes', 'required', 'integer', 'exists:generic_sources,id'],
             'source_wa_id' => ['nullable', 'integer', 'exists:official_whatsapp_numbers,id'],
             'source_email_id' => ['nullable', 'integer', 'exists:official_emails,id'],
             'referred_by_user_id' => ['nullable', 'integer', 'exists:users,id'],

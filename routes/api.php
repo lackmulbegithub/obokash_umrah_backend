@@ -110,6 +110,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     });
 
     Route::middleware('permission:query.view')->group(function (): void {
+        Route::get('/queries/intake/search', [QueryController::class, 'intakeSearch']);
         Route::get('/queries', [QueryController::class, 'index']);
         Route::get('/queries/{query}', [QueryController::class, 'show']);
         Route::get('/query-items/team-queue', [QueryController::class, 'teamQueue']);

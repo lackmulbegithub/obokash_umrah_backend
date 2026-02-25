@@ -4,7 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Customer;
 use App\Models\CustomerCategory;
-use App\Models\CustomerSource;
+use App\Models\GenericSource;
 use App\Models\Query;
 use App\Models\QueryItem;
 use App\Models\Service;
@@ -50,7 +50,7 @@ class UmrahMvpApiTest extends TestCase
             'is_active' => true,
         ]);
 
-        $source = CustomerSource::query()->create([
+        $source = GenericSource::query()->create([
             'source_name' => 'Mobile Call',
             'is_active' => true,
         ]);
@@ -96,7 +96,7 @@ class UmrahMvpApiTest extends TestCase
         ]);
     }
 
-    public function test_query_create_and_close_status_flow_works(): void
+    public function test_query_create_and_finish_status_flow_works(): void
     {
         $user = $this->createUserWithPermissions(['query.create', 'query.view', 'query.change_status']);
 
@@ -131,13 +131,13 @@ class UmrahMvpApiTest extends TestCase
         $this
             ->actingAs($user, 'sanctum')
             ->patchJson('/api/queries/'.$queryId.'/status', [
-                'query_status' => 'closed',
+                'query_status' => 'finished',
             ])
             ->assertOk();
 
         $this->assertDatabaseHas('queries', [
             'id' => $queryId,
-            'query_status' => 'closed',
+            'query_status' => 'finished',
         ]);
 
         $this->assertDatabaseHas('query_items', [
@@ -174,7 +174,7 @@ class UmrahMvpApiTest extends TestCase
             'customer_id' => $customer->id,
             'created_by_user_id' => $user->id,
             'query_details_text' => 'Queue item test',
-            'query_status' => 'active',
+            'query_status' => 'running',
             'assigned_type' => 'team',
             'team_id' => $team->id,
         ]);

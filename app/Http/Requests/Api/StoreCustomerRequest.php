@@ -4,6 +4,7 @@ namespace App\Http\Requests\Api;
 
 use App\Models\Customer;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Validator;
 
 class StoreCustomerRequest extends FormRequest
@@ -30,7 +31,7 @@ class StoreCustomerRequest extends FormRequest
             'customer_email' => ['nullable', 'email', 'max:255'],
             'category_ids' => ['required', 'array', 'min:1'],
             'category_ids.*' => ['required', 'integer', 'exists:customer_categories,id'],
-            'source_id' => ['required', 'integer', 'exists:customer_sources,id'],
+            'source_id' => ['required', 'integer', 'exists:generic_sources,id'],
             'source_wa_id' => ['nullable', 'integer', 'exists:official_whatsapp_numbers,id'],
             'source_email_id' => ['nullable', 'integer', 'exists:official_emails,id'],
             'referred_by_user_id' => ['nullable', 'integer', 'exists:users,id'],
@@ -74,10 +75,38 @@ class StoreCustomerRequest extends FormRequest
                 $validator->errors()->add('whatsapp_number', 'WhatsApp number must be a valid BD mobile in +880 format.');
             }
 
-            if ($mobile !== '' && Customer::query()->where('mobile_number', $mobile)->exists()) {
-                $validator->errors()->add('mobile_number', 'A customer with this mobile number already exists.');
+            if ($mobile !== '') {
+                $columns = ['id', 'mobile_number'];
+                if ($this->hasCustomerStatusColumn()) {
+                    $columns[] = 'status';
+                }
+
+                $existing = Customer::query()->select($columns)->where('mobile_number', $mobile)->first();
+                if ($existing && ! $this->canReuseAsReferrerOnly($existing)) {
+                    $validator->errors()->add('mobile_number', 'A customer with this mobile number already exists.');
+                }
             }
         });
+    }
+
+    private function canReuseAsReferrerOnly(Customer $customer): bool
+    {
+        if (! $this->hasCustomerStatusColumn()) {
+            return false;
+        }
+
+        return in_array((string) $customer->getAttribute('status'), ['referrer', 'referrer_only'], true);
+    }
+
+    private function hasCustomerStatusColumn(): bool
+    {
+        static $hasColumn;
+
+        if ($hasColumn === null) {
+            $hasColumn = Schema::hasColumn('customers', 'status');
+        }
+
+        return $hasColumn;
     }
 
     private function normalizeMobile(string $mobile): string

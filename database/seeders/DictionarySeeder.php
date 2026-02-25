@@ -3,7 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\CustomerCategory;
-use App\Models\CustomerSource;
+use App\Models\GenericSource;
 use App\Models\OfficialEmail;
 use App\Models\OfficialWhatsappNumber;
 use App\Models\Service;
@@ -36,12 +36,12 @@ class DictionarySeeder extends Seeder
             'Web Chat',
             'Facebook',
             'YouTube',
-            'Missed Call - IP',
+            'Missed Call – IP',
             'Others',
         ];
 
         foreach ($sources as $source) {
-            CustomerSource::query()->firstOrCreate(['source_name' => $source], ['is_active' => true]);
+            GenericSource::query()->firstOrCreate(['source_name' => $source], ['is_active' => true]);
         }
 
         foreach (['+8801700000001', '+8801700000002'] as $index => $wa) {

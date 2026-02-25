@@ -4,9 +4,9 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\CustomerCategory;
-use App\Models\CustomerSource;
 use App\Models\Country;
 use App\Models\District;
+use App\Models\GenericSource;
 use App\Models\OfficialEmail;
 use App\Models\OfficialWhatsappNumber;
 use App\Models\Service;
@@ -18,10 +18,16 @@ class BootstrapController extends Controller
 {
     public function options(): JsonResponse
     {
+        $sources = GenericSource::query()
+            ->where('is_active', true)
+            ->orderBy('source_name')
+            ->get(['id', 'source_name']);
+
         return response()->json([
             'teams' => Team::query()->where('is_active', true)->orderBy('team_name')->get(['id', 'team_name']),
             'categories' => CustomerCategory::query()->where('is_active', true)->orderBy('category_name')->get(['id', 'category_name']),
-            'customer_sources' => CustomerSource::query()->where('is_active', true)->orderBy('source_name')->get(['id', 'source_name']),
+            'customer_sources' => $sources,
+            'query_sources' => $sources,
             'visit_records' => config('customer.visit_records', []),
             'countries' => Country::query()->where('is_active', true)->orderBy('country_name')->get(['id', 'country_name', 'iso2', 'iso3']),
             'districts' => District::query()->where('is_active', true)->orderBy('district_name')->get(['id', 'country_id', 'district_name']),
