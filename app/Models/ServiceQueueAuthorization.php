@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class ServiceQueue extends Model
+class ServiceQueueAuthorization extends Model
 {
     use HasFactory;
 
@@ -16,7 +16,10 @@ class ServiceQueue extends Model
     protected $fillable = [
         'service_id',
         'team_id',
-        'queue_owner_user_id',
+        'user_id',
+        'can_view_queue',
+        'can_distribute',
+        'can_assign_to_self',
         'is_active',
     ];
 
@@ -26,6 +29,9 @@ class ServiceQueue extends Model
     protected function casts(): array
     {
         return [
+            'can_view_queue' => 'boolean',
+            'can_distribute' => 'boolean',
+            'can_assign_to_self' => 'boolean',
             'is_active' => 'boolean',
         ];
     }
@@ -40,9 +46,8 @@ class ServiceQueue extends Model
         return $this->belongsTo(Team::class);
     }
 
-    public function queueOwner(): BelongsTo
+    public function user(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'queue_owner_user_id');
+        return $this->belongsTo(User::class);
     }
-
 }

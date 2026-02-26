@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class ServiceQueue extends Model
+class TeamRoleAssignment extends Model
 {
     use HasFactory;
 
@@ -14,10 +14,11 @@ class ServiceQueue extends Model
      * @var list<string>
      */
     protected $fillable = [
-        'service_id',
         'team_id',
-        'queue_owner_user_id',
+        'user_id',
+        'team_role',
         'is_active',
+        'granted_by_user_id',
     ];
 
     /**
@@ -30,19 +31,19 @@ class ServiceQueue extends Model
         ];
     }
 
-    public function service(): BelongsTo
-    {
-        return $this->belongsTo(Service::class);
-    }
-
     public function team(): BelongsTo
     {
         return $this->belongsTo(Team::class);
     }
 
-    public function queueOwner(): BelongsTo
+    public function user(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'queue_owner_user_id');
+        return $this->belongsTo(User::class);
     }
 
+    public function grantedByUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'granted_by_user_id');
+    }
 }
+

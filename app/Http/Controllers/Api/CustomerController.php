@@ -140,7 +140,7 @@ class CustomerController extends Controller
             throw ValidationException::withMessages($sourceRuleErrors);
         }
 
-        if ($existingByMobile && $this->resolveCustomerState($existingByMobile) === 'referrer') {
+        if ($existingByMobile && $this->resolveCustomerState($existingByMobile) === 'referrer_only') {
             $customer = DB::transaction(function () use ($existingByMobile, $validated, $mobile, $whatsapp): Customer {
                 $existingByMobile->update([
                     'mobile_number' => $mobile,
@@ -181,7 +181,7 @@ class CustomerController extends Controller
                     'customer',
                     $existingByMobile->id,
                     'customer.registration.completed',
-                    ['status' => 'referrer'],
+                    ['status' => 'referrer_only'],
                     ['status' => 'registered'],
                 );
 
@@ -275,7 +275,7 @@ class CustomerController extends Controller
             'visit_record' => 'No Travel',
             'country' => 'Bangladesh',
             'is_active' => true,
-        ] + $this->customerStatusAttribute('referrer'));
+        ] + $this->customerStatusAttribute('referrer_only'));
 
         AuditLogger::log(
             auth()->id(),
@@ -296,7 +296,7 @@ class CustomerController extends Controller
     {
         $validated = $request->validated();
 
-        if ($this->resolveCustomerState($customer) === 'referrer') {
+        if ($this->resolveCustomerState($customer) === 'referrer_only') {
             return $this->completeReferrerRegistration($customer, $validated);
         }
 
@@ -438,7 +438,7 @@ class CustomerController extends Controller
             'customer',
             $customer->id,
             'customer.registration.completed',
-            ['status' => 'referrer'],
+            ['status' => 'referrer_only'],
             ['status' => 'registered'],
         );
 
@@ -569,7 +569,7 @@ class CustomerController extends Controller
         $status = (string) $customer->getAttribute('status');
 
         return in_array($status, ['referrer', 'referrer_only'], true)
-            ? 'referrer'
+            ? 'referrer_only'
             : 'registered';
     }
 

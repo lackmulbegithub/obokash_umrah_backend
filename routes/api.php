@@ -107,13 +107,27 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::get('/masters/districts', [MasterDataController::class, 'districts']);
         Route::post('/masters/districts', [MasterDataController::class, 'storeDistrict']);
         Route::patch('/masters/districts/{district}', [MasterDataController::class, 'updateDistrict']);
+
+        Route::get('/masters/service-queues', [MasterDataController::class, 'serviceQueues']);
+        Route::post('/masters/service-queues', [MasterDataController::class, 'upsertServiceQueue']);
+        Route::get('/masters/service-queue-authorizations', [MasterDataController::class, 'serviceQueueAuthorizations']);
+        Route::post('/masters/service-queue-authorizations', [MasterDataController::class, 'upsertServiceQueueAuthorization']);
+    });
+
+    Route::middleware('permission:team_authorization.manage')->group(function (): void {
+        Route::get('/masters/team-role-assignments', [MasterDataController::class, 'teamRoleAssignments']);
+        Route::post('/masters/team-role-assignments', [MasterDataController::class, 'upsertTeamRoleAssignment']);
     });
 
     Route::middleware('permission:query.view')->group(function (): void {
         Route::get('/queries/intake/search', [QueryController::class, 'intakeSearch']);
         Route::get('/queries', [QueryController::class, 'index']);
         Route::get('/queries/{query}', [QueryController::class, 'show']);
+        Route::get('/query-items/self-queue/counters', [QueryController::class, 'selfQueueCounters']);
+        Route::get('/query-items/self-queue', [QueryController::class, 'selfQueue']);
+        Route::get('/query-items/team-queue/counters', [QueryController::class, 'teamQueueCounters']);
         Route::get('/query-items/team-queue', [QueryController::class, 'teamQueue']);
+        Route::get('/query-items/notification-badges', [QueryController::class, 'queueNotificationBadges']);
     });
 
     Route::middleware('permission:query.create')->group(function (): void {
@@ -122,9 +136,15 @@ Route::middleware('auth:sanctum')->group(function (): void {
 
     Route::middleware('permission:query.assign')->group(function (): void {
         Route::post('/query-items/{queryItem}/assign-to-me', [QueryController::class, 'assignToMe']);
+        Route::post('/query-items/{queryItem}/assign-to-user', [QueryController::class, 'assignToUser']);
+    });
+
+    Route::middleware('permission:query.reassign')->group(function (): void {
+        Route::post('/query-items/{queryItem}/reassign', [QueryController::class, 'reassignToUser']);
     });
 
     Route::middleware('permission:query.change_status')->group(function (): void {
         Route::patch('/queries/{query}/status', [QueryController::class, 'updateStatus']);
+        Route::patch('/query-items/{queryItem}/status', [QueryController::class, 'updateItemStatus']);
     });
 });

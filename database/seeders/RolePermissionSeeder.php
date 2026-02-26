@@ -29,9 +29,14 @@ class RolePermissionSeeder extends Seeder
             'customer.edit',
             'customer.approve_change',
             'masters.manage',
+            'team_authorization.manage',
             'query.view',
             'query.create',
             'query.assign',
+            'query.reassign',
+            'query_view_team_queue',
+            'query_item_assign_team_member',
+            'query_item_assign_self_from_team_queue',
             'query.change_status',
         ];
 
@@ -77,9 +82,14 @@ class RolePermissionSeeder extends Seeder
             'customer.edit',
             'customer.approve_change',
             'masters.manage',
+            'team_authorization.manage',
             'query.view',
             'query.create',
             'query.assign',
+            'query.reassign',
+            'query_view_team_queue',
+            'query_item_assign_team_member',
+            'query_item_assign_self_from_team_queue',
             'query.change_status',
         ]);
 
